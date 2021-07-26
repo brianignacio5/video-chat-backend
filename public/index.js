@@ -5,17 +5,15 @@ var answersFrom = {};
 var perrConnection = new RTCPeerConnection();
 
 perrConnection.ontrack = function ({ streams: [stream] }) {
-  var vid = document.createElement("video");
-  vid.setAttribute("class", "video-small");
-  vid.setAttribute("autoplay", "autoplay");
-  vid.setAttribute("id", "video-small");
-  document.getElementById("users-container").appendChild(vid);
-  vid.srcObject = stream;
+  const remoteVideo = document.getElementById("remote-video");
+  if (remoteVideo) {
+    remoteVideo.srcObject = stream;
+  }
 };
 
 // If video or audio permission is not granted/ available
 // getUserMedia will throw a NotFoundError
-var constrains = { video: false, audio: true };
+var constrains = { video: true, audio: true };
 
 async function getUserMedia() {
   let stream = null;
@@ -100,7 +98,7 @@ socket.on("offer-made", async function (data) {
     await perrConnection.setRemoteDescription(
       new RTCSessionDescription(data.offer)
     );
-    const answer = perrConnection.createAnswer();
+    const answer = await perrConnection.createAnswer();
     await perrConnection.setLocalDescription(new RTCSessionDescription(answer));
     socket.emit("make-answer", {
       answer: answer,
