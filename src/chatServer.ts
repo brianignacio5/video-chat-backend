@@ -38,18 +38,18 @@ export class ChatServer {
 
       socket.on("disconnect", () => {
         this.activeSockets.splice(this.activeSockets.indexOf(socket.id), 1);
-        this.io.emit("remove-user", socket.id);
+        this.io.emit("removeUser", socket.id);
       });
 
-      socket.on("make-offer", function (data) {
-        socket.to(data.to).emit("offer-made", {
+      socket.on("makeOffer", function (data) {
+        socket.to(data.to).emit("offerMade", {
           offer: data.offer,
           socket: socket.id,
         });
       });
 
-      socket.on("make-answer", function (data) {
-        socket.to(data.to).emit("answer-made", {
+      socket.on("makeAnswer", function (data) {
+        socket.to(data.to).emit("answerMade", {
           socket: socket.id,
           answer: data.answer,
         });
@@ -60,12 +60,12 @@ export class ChatServer {
       );
 
       if (!existingSocket) {
-        socket.emit("add-users", {
+        socket.emit("addUsers", {
           users: this.activeSockets
         });
         this.activeSockets.push(socket.id);
         
-        socket.broadcast.emit("add-users", {
+        socket.broadcast.emit("addUsers", {
           users: [socket.id],
         });
       }
@@ -77,7 +77,12 @@ export class ChatServer {
   }
 
   private sockets() {
-    this.io = new socketIo.Server(this.server);
+    this.io = new socketIo.Server(this.server, {
+      cors: {
+        origin: "http://localhost:8080",
+        methods: ["GET","POST"]
+      }
+    });
   }
 
   public getApp(): express.Application {

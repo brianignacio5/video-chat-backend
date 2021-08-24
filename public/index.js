@@ -37,7 +37,7 @@ async function createOffer(id) {
   try {
     const offer = await perrConnection.createOffer();
     await perrConnection.setLocalDescription(new RTCSessionDescription(offer));
-    socket.emit("make-offer", {
+    socket.emit("makeOffer", {
       offer: offer,
       to: id,
     });
@@ -69,7 +69,7 @@ function errHandler(err) {
   }
 }
 
-socket.on("add-users", function (data) {
+socket.on("addUsers", function (data) {
   for (var i = 0; i < data.users.length; i++) {
     var id = data.users[i];
     const alreadyExistingUser = document.getElementById(id);
@@ -86,21 +86,21 @@ socket.on("add-users", function (data) {
   }
 });
 
-socket.on("remove-user", function (id) {
+socket.on("removeUser", function (id) {
   var userEl = document.getElementById(id);
   if (userEl) {
     document.getElementById("users").removeChild(userEl);
   }
 });
 
-socket.on("offer-made", async function (data) {
+socket.on("offerMade", async function (data) {
   try {
     await perrConnection.setRemoteDescription(
       new RTCSessionDescription(data.offer)
     );
     const answer = await perrConnection.createAnswer();
     await perrConnection.setLocalDescription(new RTCSessionDescription(answer));
-    socket.emit("make-answer", {
+    socket.emit("makeAnswer", {
       answer: answer,
       to: data.socket,
     });
@@ -109,7 +109,7 @@ socket.on("offer-made", async function (data) {
   }
 });
 
-socket.on("answer-made", async function (data) {
+socket.on("answerMade", async function (data) {
   try {
     await perrConnection.setRemoteDescription(
       new RTCSessionDescription(data.answer)
