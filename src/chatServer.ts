@@ -1,7 +1,7 @@
 import * as express from "express";
 import { createServer, Server } from "http";
-import * as socketIo from "socket.io";
-import { IMessage } from "./types";
+import { Server as SocketServer } from "socket.io";
+import { ExtendedSocket, IMessage, IUser } from "./types";
 
 export class ChatServer {
   public static readonly PORT: number = 5000;
@@ -10,10 +10,11 @@ export class ChatServer {
   private app: express.Application;
   private port: string | number;
   private server: Server;
-  private io: socketIo.Server;
+  private io: SocketServer;
 
   private activeSockets: string[] = [];
   private messages: IMessage[] = [];
+  private users: IUser[] = [];
 
   constructor() {
     this.createApp();
@@ -36,11 +37,18 @@ export class ChatServer {
     this.server.listen(this.port, () => {
       console.log(`Listening in port ${this.port}`);
     });
-    this.io.on("connection", (socket) => {
+    this.io.on("connection", (socket: ExtendedSocket) => {
       console.log(`${socket.id} has connected`);
+      console.log(`${socket.username} has connected`);
 
       socket.on("disconnect", () => {
         this.activeSockets.splice(this.activeSockets.indexOf(socket.id), 1);
+        const indexToDel = this.users.findIndex(
+          (user) => user.id === socket.id
+        );
+        if (indexToDel !== -1) {
+          this.users.splice(indexToDel, 1);
+        }
         this.io.emit("removeUser", socket.id);
       });
 
@@ -58,18 +66,28 @@ export class ChatServer {
         });
       });
 
-      const existingSocket = this.activeSockets.find(
-        (currSocket) => currSocket === socket.id
+      const existingUser = this.users.find(
+        (currUser) => currUser.id === socket.id
       );
 
-      if (!existingSocket) {
+      if (!existingUser) {
         socket.emit("addUsers", {
-          users: this.activeSockets,
+          users: this.users,
         });
+
+        socket.emit("myUserInfo", {
+          id: socket.id,
+          name: socket.username,
+        });
+
         this.activeSockets.push(socket.id);
+        this.users.push({
+          id: socket.id,
+          name: socket.username,
+        });
 
         socket.broadcast.emit("addUsers", {
-          users: [socket.id],
+          users: [{ id: socket.id, name: socket.username }],
         });
       }
 
@@ -82,11 +100,7 @@ export class ChatServer {
           message: {
             content: data.message,
             id: newLength - 1,
-            userId: socket.id,
-          },
-          from: {
-            id: socket.id,
-            name: data.from,
+            from: data.from,
           },
         };
         socket.broadcast.emit("messageFromServer", msgToSend);
@@ -105,13 +119,22 @@ export class ChatServer {
   }
 
   private sockets() {
-    this.io = new socketIo.Server(this.server, {
+    this.io = new SocketServer(this.server, {
       cors: {
         origin:
           "http://localhost:" +
           (process.env.FRONTEND_PORT || ChatServer.FRONTEND_PORT),
         methods: ["GET", "POST"],
       },
+    });
+
+    this.io.use((socket: ExtendedSocket, next) => {
+      const username = socket.handshake.auth.username;
+      if (!username) {
+        return next(new Error("Invalid username"));
+      }
+      socket.username = username;
+      next();
     });
   }
 
