@@ -1,9 +1,11 @@
 import * as express from "express";
 import { createServer, Server } from "http";
 import * as socketIo from "socket.io";
+import { IMessage } from "./types";
 
 export class ChatServer {
   public static readonly PORT: number = 5000;
+  public static readonly FRONTEND_PORT: number = 8080;
 
   private app: express.Application;
   private port: string | number;
@@ -11,6 +13,7 @@ export class ChatServer {
   private io: socketIo.Server;
 
   private activeSockets: string[] = [];
+  private messages: IMessage[] = [];
 
   constructor() {
     this.createApp();
@@ -61,15 +64,40 @@ export class ChatServer {
 
       if (!existingSocket) {
         socket.emit("addUsers", {
-          users: this.activeSockets
+          users: this.activeSockets,
         });
         this.activeSockets.push(socket.id);
-        
+
         socket.broadcast.emit("addUsers", {
           users: [socket.id],
         });
       }
+
+      socket.on("sendTxtMsg", (data) => {
+        const newLength = this.messages.push({
+          content: data.message,
+          userId: socket.id,
+        });
+        const msgToSend = {
+          message: {
+            content: data.message,
+            id: newLength - 1,
+            userId: socket.id,
+          },
+          from: {
+            id: socket.id,
+            name: data.from,
+          },
+        };
+        socket.broadcast.emit("messageFromServer", msgToSend);
+        socket.emit("messageFromServer", msgToSend);
+      });
     });
+  }
+
+  public addMessage(message: IMessage) {
+    const newLength = this.messages.push(message);
+    return newLength - 1;
   }
 
   private createServer() {
@@ -79,9 +107,11 @@ export class ChatServer {
   private sockets() {
     this.io = new socketIo.Server(this.server, {
       cors: {
-        origin: "http://localhost:8080",
-        methods: ["GET","POST"]
-      }
+        origin:
+          "http://localhost:" +
+          (process.env.FRONTEND_PORT || ChatServer.FRONTEND_PORT),
+        methods: ["GET", "POST"],
+      },
     });
   }
 
