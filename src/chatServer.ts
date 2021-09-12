@@ -103,7 +103,7 @@ export class ChatServer {
             from: data.from,
           },
         };
-        socket.broadcast.emit("messageFromServer", msgToSend);
+        socket.to(data.to).emit("messageFromServer", msgToSend);
         socket.emit("messageFromServer", msgToSend);
       });
     });
